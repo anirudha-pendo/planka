@@ -183,6 +183,7 @@ module.exports = {
     }
 
     const values = _.pick(inputs, ['assigneeUserId', 'position', 'name', 'isCompleted']);
+    const wasCompleted = !!task.isCompleted;
 
     task = await sails.helpers.tasks.updateOne.with({
       project,
@@ -201,6 +202,25 @@ module.exports = {
 
     if (!task) {
       throw Errors.TASK_NOT_FOUND;
+    }
+
+    // Only on the transition to complete, which is when the completeTask activity is logged
+    if (!wasCompleted && task.isCompleted) {
+      // Pendo: task marked complete
+      sails.helpers.utils.sendPendoTrackEvent.with({
+        event: 'Task completed',
+        visitorId: currentUser.id,
+        properties: {
+          task_id: task.id,
+          task_list_id: task.taskListId,
+          card_id: card.id,
+          board_id: board.id,
+          project_id: project.id,
+          is_linked_card: !!task.linkedCardId,
+          has_assignee: !!task.assigneeUserId,
+        },
+        request: this.req,
+      });
     }
 
     return {

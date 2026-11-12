@@ -172,6 +172,20 @@ module.exports = {
         () => Errors.BASE_CUSTOM_FIELD_GROUP_OR_NAME_MUST_BE_PRESENT,
       );
 
+    // Pendo: field group saved on the board
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Custom field group created',
+      visitorId: currentUser.id,
+      properties: {
+        custom_field_group_id: customFieldGroup.id,
+        scope: 'board',
+        board_id: board.id,
+        project_id: project.id,
+        is_from_base_group: !!baseCustomFieldGroup,
+      },
+      request: this.req,
+    });
+
     return {
       item: customFieldGroup,
     };

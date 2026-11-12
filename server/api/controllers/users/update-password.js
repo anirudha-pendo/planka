@@ -161,6 +161,18 @@ module.exports = {
       throw Errors.USER_NOT_FOUND;
     }
 
+    // Pendo: new password stored and other sessions invalidated
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Password changed',
+      visitorId: currentUser.id,
+      properties: {
+        target_user_id: user.id,
+        is_own_password: user.id === currentUser.id,
+        actor_role: currentUser.role,
+      },
+      request: this.req,
+    });
+
     if (currentSession && user.id === currentUser.id) {
       const { token: accessToken } = sails.helpers.utils.createJwtToken(
         user.id,

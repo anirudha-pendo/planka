@@ -279,6 +279,23 @@ module.exports = {
       .intercept('positionMustBeInValues', () => Errors.POSITION_MUST_BE_PRESENT)
       .intercept('listMustBeInValues', () => Errors.LIST_MUST_BE_PRESENT);
 
+    // Pendo: copy of the card created on the server
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Card duplicated',
+      visitorId: currentUser.id,
+      properties: {
+        card_id: nextCard.id,
+        source_card_id: card.id,
+        list_id: nextCard.listId,
+        board_id: nextCard.boardId,
+        project_id: (nextProject || project).id,
+        is_board_changed: nextCard.boardId !== board.id,
+        task_count: _.size(tasks),
+        attachment_count: _.size(attachments),
+      },
+      request: this.req,
+    });
+
     return {
       item: nextCard,
       included: {

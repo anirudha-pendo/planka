@@ -98,6 +98,19 @@ module.exports = {
       request: this.req,
     });
 
+    // Pendo: new project exists and the creator is its manager
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Project created',
+      visitorId: currentUser.id,
+      properties: {
+        project_id: project.id,
+        project_type: project.type,
+        has_description: !!project.description,
+        user_role: currentUser.role,
+      },
+      request: this.req,
+    });
+
     return {
       item: project,
       included: {

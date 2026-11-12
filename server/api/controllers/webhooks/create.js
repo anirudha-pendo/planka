@@ -165,6 +165,22 @@ module.exports = {
       })
       .intercept('limitReached', () => Errors.LIMIT_REACHED);
 
+    // Pendo: webhook saved and starts receiving events
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Webhook created',
+      visitorId: currentUser.id,
+      properties: {
+        webhook_id: webhook.id,
+        project_id: webhook.projectId || 'none',
+        board_id: webhook.boardId || 'none',
+        is_user_scoped: !!webhook.userId,
+        is_all_events: !events,
+        event_count: events ? events.length : 0,
+        excluded_event_count: excludedEvents ? excludedEvents.length : 0,
+      },
+      request: this.req,
+    });
+
     return {
       item: webhook,
     };
