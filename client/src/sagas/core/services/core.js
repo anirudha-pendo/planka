@@ -48,6 +48,31 @@ export function* initializeCore() {
     notificationServices,
   } = yield call(requests.fetchCore); // TODO: handle error
 
+  window.pendo.identify({
+    visitor: {
+      id: user.id,
+      email: user.email,
+      full_name: user.name,
+      role: user.role,
+      username: user.username,
+      organization: user.organization,
+      language: user.language,
+      isDeactivated: user.isDeactivated,
+      isDefaultAdmin: user.isDefaultAdmin,
+      isTotpEnabled: user.isTotpEnabled,
+      createdAt: user.createdAt,
+      termsAcceptedAt: user.termsAcceptedAt,
+      defaultEditorMode: user.defaultEditorMode,
+      defaultHomeView: user.defaultHomeView,
+      defaultProjectsOrder: user.defaultProjectsOrder,
+      autoLogoutMode: user.autoLogoutMode,
+      subscribeToOwnCards: user.subscribeToOwnCards,
+      subscribeToCardWhenCommenting: user.subscribeToCardWhenCommenting,
+      turnOffRecentCardHighlighting: user.turnOffRecentCardHighlighting,
+      enableFavoritesByDefault: user.enableFavoritesByDefault,
+    },
+  });
+
   yield call(i18n.changeLanguage, user.language);
   yield call(i18n.loadCoreLocale);
 
@@ -140,6 +165,13 @@ export function* logout(revokeAccessToken) {
   // belongs to the next person to sign in here.
   yield call(forgetBoardViews);
   yield call(forgetListScrolls);
+  // Reset Pendo to a fresh anonymous visitor so the next person to sign in here
+  // isn't tracked under this user's identity. The install snippet doesn't stub
+  // clearSession, so it only exists once the agent has loaded (an ad blocker can
+  // stop that from ever happening), and sign-out must not fail because of it.
+  if (window.pendo && typeof window.pendo.clearSession === 'function') {
+    window.pendo.clearSession();
+  }
 
   if (revokeAccessToken) {
     yield put(actions.logout.revokeAccessToken());
