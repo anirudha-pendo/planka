@@ -48,6 +48,34 @@ export function* initializeCore() {
     notificationServices,
   } = yield call(requests.fetchCore); // TODO: handle error
 
+  // Register the signed-in user with Pendo. Runs after a fresh sign-in and on
+  // every page load that resumes a stored session.
+  window.pendo.identify({
+    visitor: {
+      id: user.id,
+      email: user.email,
+      full_name: user.name,
+      username: user.username,
+      role: user.role,
+      organization: user.organization,
+      language: user.language,
+      isDeactivated: user.isDeactivated,
+      createdAt: user.createdAt,
+      termsAcceptedAt: user.termsAcceptedAt,
+      isTotpEnabled: user.isTotpEnabled,
+      totpEnabledAt: user.totpEnabledAt,
+      isDefaultAdmin: user.isDefaultAdmin,
+      defaultEditorMode: user.defaultEditorMode,
+      defaultHomeView: user.defaultHomeView,
+      defaultProjectsOrder: user.defaultProjectsOrder,
+      autoLogoutMode: user.autoLogoutMode,
+      subscribeToOwnCards: user.subscribeToOwnCards,
+      subscribeToCardWhenCommenting: user.subscribeToCardWhenCommenting,
+      turnOffRecentCardHighlighting: user.turnOffRecentCardHighlighting,
+      enableFavoritesByDefault: user.enableFavoritesByDefault,
+    },
+  });
+
   yield call(i18n.changeLanguage, user.language);
   yield call(i18n.loadCoreLocale);
 
@@ -140,6 +168,13 @@ export function* logout(revokeAccessToken) {
   // belongs to the next person to sign in here.
   yield call(forgetBoardViews);
   yield call(forgetListScrolls);
+
+  // Reset Pendo to a fresh anonymous visitor so the next person to sign in here
+  // isn't tracked as this one. The install snippet doesn't stub `clearSession`,
+  // so it only exists once the agent script has loaded.
+  if (typeof window.pendo.clearSession === 'function') {
+    window.pendo.clearSession();
+  }
 
   if (revokeAccessToken) {
     yield put(actions.logout.revokeAccessToken());
