@@ -12,6 +12,20 @@ import actions from '../../../actions';
 import api from '../../../api';
 import { createLocalId } from '../../../utils/local-id';
 import mergeRecords from '../../../utils/merge-records';
+import trackPendoEvent from '../../../utils/pendo';
+
+// Pendo: counts the managers of the project when it's the one currently open
+function* selectProjectManagerCount(projectId) {
+  const { projectId: currentProjectId } = yield select(selectors.selectPath);
+
+  if (projectId !== currentProjectId) {
+    return undefined;
+  }
+
+  const projectManagers = yield select(selectors.selectManagersForCurrentProject);
+
+  return projectManagers ? projectManagers.length : undefined;
+}
 
 export function* createProjectManager(projectId, data) {
   const localId = yield call(createLocalId);
@@ -29,10 +43,29 @@ export function* createProjectManager(projectId, data) {
     ({ item: projectManager } = yield call(request, api.createProjectManager, projectId, data));
   } catch (error) {
     yield put(actions.createProjectManager.failure(localId, error));
+
+    // Pendo: the server didn't add the project manager
+    const projectManagerCount = yield call(selectProjectManagerCount, projectId);
+
+    yield call(trackPendoEvent, 'project_manager_added', {
+      projectId,
+      projectManagerCount,
+      success: false,
+    });
+
     return;
   }
 
   yield put(actions.createProjectManager.success(localId, projectManager));
+
+  // Pendo: the server added the project manager
+  const projectManagerCount = yield call(selectProjectManagerCount, projectId);
+
+  yield call(trackPendoEvent, 'project_manager_added', {
+    projectId,
+    projectManagerCount,
+    success: true,
+  });
 }
 
 export function* createManagerInCurrentProject(data) {

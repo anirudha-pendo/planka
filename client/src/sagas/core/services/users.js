@@ -13,6 +13,7 @@ import actions from '../../../actions';
 import api from '../../../api';
 import { setAccessToken } from '../../../utils/access-token-storage';
 import mergeRecords from '../../../utils/merge-records';
+import trackPendoEvent from '../../../utils/pendo';
 import { isUserAdminOrProjectOwner } from '../../../utils/record-helpers';
 import { UserRoles } from '../../../constants/Enums';
 
@@ -35,10 +36,24 @@ export function* createUser(data) {
     ({ item: user } = yield call(request, api.createUser, data));
   } catch (error) {
     yield put(actions.createUser.failure(error));
+
+    // Pendo: the server rejected the new user account, for example a duplicate email or username
+    yield call(trackPendoEvent, 'user_created', {
+      role: data.role,
+      success: false,
+      errorCode: (error && error.code) || 'unknown',
+    });
+
     return;
   }
 
   yield put(actions.createUser.success(user));
+
+  // Pendo: the server created the user account
+  yield call(trackPendoEvent, 'user_created', {
+    role: user.role,
+    success: true,
+  });
 }
 
 export function* handleUserCreate(user) {
@@ -428,6 +443,15 @@ export function* enableUserTotp(id, data) {
   }
 
   yield put(actions.enableUserTotp.success(user, recoveryCodes));
+
+  // Pendo: TOTP is turned on and recovery codes are issued
+  const currentUserId = yield select(selectors.selectCurrentUserId);
+
+  yield call(trackPendoEvent, 'two_factor_enabled', {
+    userId: user.id,
+    recoveryCodeCount: recoveryCodes ? recoveryCodes.length : 0,
+    isCurrentUser: user.id === currentUserId,
+  });
 }
 
 export function* enableCurrentUserTotp(data) {
@@ -447,6 +471,14 @@ export function* disableUserTotp(id, data) {
   }
 
   yield put(actions.disableUserTotp.success(user));
+
+  // Pendo: the server turned off TOTP for the user
+  const currentUserId = yield select(selectors.selectCurrentUserId);
+
+  yield call(trackPendoEvent, 'two_factor_disabled', {
+    userId: user.id,
+    isCurrentUser: user.id === currentUserId,
+  });
 }
 
 export function* disableCurrentUserTotp(data) {

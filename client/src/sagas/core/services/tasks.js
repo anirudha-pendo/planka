@@ -10,6 +10,7 @@ import selectors from '../../../selectors';
 import actions from '../../../actions';
 import api from '../../../api';
 import { createLocalId } from '../../../utils/local-id';
+import trackPendoEvent from '../../../utils/pendo';
 
 export function* createTask(taskListId, data) {
   let isCompleted;
@@ -62,6 +63,16 @@ export function* updateTask(id, data) {
   }
 
   yield put(actions.updateTask.success(task));
+
+  // Pendo: the server saved a checked or unchecked task (other task edits aren't tracked)
+  if (data.isCompleted !== undefined) {
+    yield call(trackPendoEvent, 'task_completion_changed', {
+      taskId: task.id,
+      taskListId: task.taskListId,
+      isCompleted: task.isCompleted,
+      hasLinkedCard: !!task.linkedCardId,
+    });
+  }
 }
 
 export function* handleTaskUpdate(task) {

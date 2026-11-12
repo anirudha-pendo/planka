@@ -12,6 +12,7 @@ import selectors from '../../../selectors';
 import actions from '../../../actions';
 import api from '../../../api';
 import { createLocalId } from '../../../utils/local-id';
+import trackPendoEvent from '../../../utils/pendo';
 import ToastTypes from '../../../constants/ToastTypes';
 
 export function* createList(boardId, data) {
@@ -172,6 +173,14 @@ export function* sortList(id, data) {
   }
 
   yield put(actions.sortList.success(list, cards));
+
+  // Pendo: the server sorted the list's cards
+  yield call(trackPendoEvent, 'list_sorted', {
+    listId: list.id,
+    fieldName: data.fieldName,
+    order: data.order,
+    cardCount: cards ? cards.length : 0,
+  });
 }
 
 export function* moveListCards(id, nextId) {
@@ -180,6 +189,8 @@ export function* moveListCards(id, nextId) {
   if (cardIds.length === 0) {
     return;
   }
+
+  const { boardId } = yield select(selectors.selectListById, id);
 
   yield put(actions.moveListCards(id, nextId, cardIds));
 
@@ -196,10 +207,29 @@ export function* moveListCards(id, nextId) {
     }));
   } catch (error) {
     yield put(actions.moveListCards.failure(id, error));
+
+    // Pendo: the bulk move of the list's cards failed
+    yield call(trackPendoEvent, 'list_cards_archived', {
+      listId: id,
+      targetListId: nextId,
+      boardId,
+      cardCount: cardIds.length,
+      success: false,
+    });
+
     return;
   }
 
   yield put(actions.moveListCards.success(list, cards, activities));
+
+  // Pendo: all of the list's cards were moved in one bulk operation
+  yield call(trackPendoEvent, 'list_cards_archived', {
+    listId: id,
+    targetListId: nextId,
+    boardId,
+    cardCount: cards ? cards.length : cardIds.length,
+    success: true,
+  });
 }
 
 export function* moveListCardsToArchiveList(id) {
@@ -210,6 +240,16 @@ export function* moveListCardsToArchiveList(id) {
 
 export function* clearTrashListInCurrentBoard() {
   const trashListId = yield select(selectors.selectTrashListIdForCurrentBoard);
+  const { boardId } = yield select(selectors.selectPath);
+  // Pendo: counted before clearing, covers the trash cards loaded in the client
+  const trashCardIds = yield select(selectors.selectCardIdsByListId, trashListId);
+
+  // Pendo: trash_emptied properties shared by both outcomes
+  const trashEmptiedProperties = {
+    boardId,
+    listId: trashListId,
+    cardCount: trashCardIds ? trashCardIds.length : 0,
+  };
 
   yield put(actions.clearList(trashListId));
 
@@ -225,10 +265,23 @@ export function* clearTrashListInCurrentBoard() {
     ({ item: list } = yield call(request, api.clearList, trashListId));
   } catch (error) {
     yield put(actions.clearList.failure(trashListId, error));
+
+    // Pendo: the server didn't clear the trash list
+    yield call(trackPendoEvent, 'trash_emptied', {
+      ...trashEmptiedProperties,
+      success: false,
+    });
+
     return;
   }
 
   yield put(actions.clearList.success(list));
+
+  // Pendo: the server cleared the trash list and permanently deleted its cards
+  yield call(trackPendoEvent, 'trash_emptied', {
+    ...trashEmptiedProperties,
+    success: true,
+  });
 }
 
 export function* handleListClear(list) {

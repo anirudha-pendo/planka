@@ -13,6 +13,7 @@ import actions from '../../../actions';
 import api from '../../../api';
 import { createLocalId } from '../../../utils/local-id';
 import { rememberBoardView } from '../../../utils/board-view-memory';
+import trackPendoEvent from '../../../utils/pendo';
 import ActionTypes from '../../../constants/ActionTypes';
 import ModalTypes from '../../../constants/ModalTypes';
 
@@ -37,6 +38,16 @@ export function* createBoard(projectId, { import: boardImport, ...data }) {
     yield take(ActionTypes.BOARD_CREATE);
   });
 
+  // Pendo: board_created properties shared by the success and failure outcomes
+  const boardCreatedProperties = {
+    projectId,
+    isImport: !!boardImport,
+    ...(boardImport && {
+      importType: boardImport.type,
+      importFileSize: boardImport.file && boardImport.file.size,
+    }),
+  };
+
   let board;
   let boardMemberships;
 
@@ -59,10 +70,26 @@ export function* createBoard(projectId, { import: boardImport, ...data }) {
       : call(request, api.createBoard, projectId, nextData));
   } catch (error) {
     yield put(actions.createBoard.failure(localId, error));
+
+    // Pendo: board creation or import was rejected by the server
+    yield call(trackPendoEvent, 'board_created', {
+      ...boardCreatedProperties,
+      success: false,
+      errorCode: (error && error.code) || 'unknown',
+    });
+
     return;
   }
 
   yield put(actions.createBoard.success(localId, board, boardMemberships));
+
+  // Pendo: the server confirmed the new board (created blank or from an import)
+  yield call(trackPendoEvent, 'board_created', {
+    ...boardCreatedProperties,
+    boardId: board.id,
+    boardMembershipCount: boardMemberships ? boardMemberships.length : 0,
+    success: true,
+  });
 
   if (watchForCreateBoardActionTask.isRunning()) {
     yield call(goToBoard, board.id);
@@ -223,6 +250,24 @@ export function* searchInCurrentBoard(value) {
   const currentListId = yield select(selectors.selectCurrentListId);
 
   yield put(actions.searchInBoard(boardId, value, currentListId));
+
+  // Pendo: a non-empty search term was applied to the current board (input is debounced)
+  if (value && value.trim()) {
+    const board = yield select(selectors.selectBoardById, boardId);
+    const filterUserIds = yield select(selectors.selectFilterUserIdsForCurrentBoard);
+    const filterLabelIds = yield select(selectors.selectFilterLabelIdsForCurrentBoard);
+    const filteredCardIds = yield select(selectors.selectFilteredCardIdsForCurrentBoard);
+
+    yield call(trackPendoEvent, 'board_search_performed', {
+      boardId,
+      queryLength: value.trim().length,
+      currentListId,
+      filterUserCount: filterUserIds ? filterUserIds.length : 0,
+      filterLabelCount: filterLabelIds ? filterLabelIds.length : 0,
+      resultsCount: filteredCardIds ? filteredCardIds.length : 0,
+      boardView: board && board.view,
+    });
+  }
 }
 
 export function* deleteBoard(id) {

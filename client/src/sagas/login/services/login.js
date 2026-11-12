@@ -10,7 +10,11 @@ import actions from '../../../actions';
 import api from '../../../api';
 import i18n from '../../../i18n';
 import { setAccessToken } from '../../../utils/access-token-storage';
+import trackPendoEvent from '../../../utils/pendo';
 import AccessTokenSteps from '../../../constants/AccessTokenSteps';
+
+// Pendo: remembers terms acceptance when TOTP verification still follows it
+let isTermsAcceptedInSignIn = false;
 
 export function* initializeLogin() {
   const { item: bootstrap } = yield call(api.getBootstrap); // TODO: handle error
@@ -19,6 +23,8 @@ export function* initializeLogin() {
 }
 
 export function* authenticate(data) {
+  isTermsAcceptedInSignIn = false;
+
   yield put(actions.authenticate(data));
 
   let accessToken;
@@ -36,6 +42,13 @@ export function* authenticate(data) {
 
   yield call(setAccessToken, accessToken);
   yield put(actions.authenticate.success(accessToken));
+
+  // Pendo: sign-in finished with credentials only
+  yield call(trackPendoEvent, 'login_completed', {
+    completionStep: 'credentials',
+    usedTotp: false,
+    acceptedTerms: false,
+  });
 }
 
 export function* clearAuthenticateError() {
@@ -55,12 +68,22 @@ export function* acceptTerms(signature) {
       initialLanguage: i18n.resolvedLanguage,
     }));
   } catch (error) {
+    // Pendo: terms are accepted, but TOTP verification still has to finish the sign-in
+    isTermsAcceptedInSignIn = !!error && error.step === AccessTokenSteps.VERIFY_TOTP;
+
     yield put(actions.acceptTerms.failure(error));
     return;
   }
 
   yield call(setAccessToken, accessToken);
   yield put(actions.acceptTerms.success(accessToken));
+
+  // Pendo: sign-in finished by accepting the terms
+  yield call(trackPendoEvent, 'login_completed', {
+    completionStep: 'terms',
+    usedTotp: false,
+    acceptedTerms: true,
+  });
 }
 
 export function* cancelTerms() {
@@ -112,6 +135,15 @@ export function* verifyTotp(data) {
 
   yield call(setAccessToken, accessToken);
   yield put(actions.verifyTotp.success(accessToken));
+
+  // Pendo: sign-in finished by verifying a TOTP code
+  yield call(trackPendoEvent, 'login_completed', {
+    completionStep: 'totp',
+    usedTotp: true,
+    acceptedTerms: isTermsAcceptedInSignIn,
+  });
+
+  isTermsAcceptedInSignIn = false;
 }
 
 export function* cancelTotpChallenge() {

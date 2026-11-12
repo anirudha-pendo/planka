@@ -10,6 +10,7 @@ import selectors from '../../../selectors';
 import actions from '../../../actions';
 import api from '../../../api';
 import { createLocalId } from '../../../utils/local-id';
+import trackPendoEvent from '../../../utils/pendo';
 
 export function* createNotificationServiceInCurrentUser(data) {
   const localId = yield call(createLocalId);
@@ -33,10 +34,25 @@ export function* createNotificationServiceInCurrentUser(data) {
     ));
   } catch (error) {
     yield put(actions.createNotificationService.failure(localId, error));
+
+    // Pendo: the server didn't save the user notification service
+    yield call(trackPendoEvent, 'notification_service_created', {
+      scope: 'user',
+      format: data.format,
+      success: false,
+    });
+
     return;
   }
 
   yield put(actions.createNotificationService.success(localId, notificationService));
+
+  // Pendo: the server saved the user notification service
+  yield call(trackPendoEvent, 'notification_service_created', {
+    scope: 'user',
+    format: notificationService.format,
+    success: true,
+  });
 }
 
 export function* createNotificationServiceInBoard(boardId, data) {
@@ -60,10 +76,27 @@ export function* createNotificationServiceInBoard(boardId, data) {
     ));
   } catch (error) {
     yield put(actions.createNotificationService.failure(localId, error));
+
+    // Pendo: the server didn't save the board notification service
+    yield call(trackPendoEvent, 'notification_service_created', {
+      scope: 'board',
+      boardId,
+      format: data.format,
+      success: false,
+    });
+
     return;
   }
 
   yield put(actions.createNotificationService.success(localId, notificationService));
+
+  // Pendo: the server saved the board notification service
+  yield call(trackPendoEvent, 'notification_service_created', {
+    scope: 'board',
+    boardId,
+    format: notificationService.format,
+    success: true,
+  });
 }
 
 export function* handleNotificationServiceCreate(notificationService) {
@@ -89,6 +122,15 @@ export function* handleNotificationServiceUpdate(notificationService) {
 }
 
 export function* testNotificationService(id) {
+  // Pendo: read before the request so a failed test still reports format and scope
+  const testedNotificationService = yield select(selectors.selectNotificationServiceById, id);
+
+  const notificationServiceTestedProperties = {
+    notificationServiceId: id,
+    format: testedNotificationService && testedNotificationService.format,
+    scope: testedNotificationService && testedNotificationService.boardId ? 'board' : 'user',
+  };
+
   yield put(actions.testNotificationService(id));
 
   let notificationService;
@@ -96,10 +138,24 @@ export function* testNotificationService(id) {
     ({ item: notificationService } = yield call(request, api.testNotificationService, id));
   } catch (error) {
     yield put(actions.testNotificationService.failure(id, error));
+
+    // Pendo: the test notification wasn't delivered
+    yield call(trackPendoEvent, 'notification_service_tested', {
+      ...notificationServiceTestedProperties,
+      success: false,
+      errorCode: (error && error.code) || 'unknown',
+    });
+
     return;
   }
 
   yield put(actions.testNotificationService.success(notificationService));
+
+  // Pendo: the test notification was sent
+  yield call(trackPendoEvent, 'notification_service_tested', {
+    ...notificationServiceTestedProperties,
+    success: true,
+  });
 }
 
 export function* deleteNotificationService(id) {

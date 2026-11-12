@@ -13,6 +13,7 @@ import actions from '../../../actions';
 import api from '../../../api';
 import { createLocalId } from '../../../utils/local-id';
 import mergeRecords from '../../../utils/merge-records';
+import trackPendoEvent from '../../../utils/pendo';
 
 export function* createBoardMembership(boardId, data) {
   const localId = yield call(createLocalId);
@@ -30,10 +31,31 @@ export function* createBoardMembership(boardId, data) {
     ({ item: boardMembership } = yield call(request, api.createBoardMembership, boardId, data));
   } catch (error) {
     yield put(actions.createBoardMembership.failure(localId, error));
+
+    // Pendo: the server rejected the new board membership
+    const board = yield select(selectors.selectBoardById, boardId);
+
+    yield call(trackPendoEvent, 'board_member_added', {
+      boardId,
+      projectId: board && board.projectId,
+      role: data.role,
+      canComment: data.canComment,
+      success: false,
+    });
+
     return;
   }
 
   yield put(actions.createBoardMembership.success(localId, boardMembership));
+
+  // Pendo: the server created the board membership
+  yield call(trackPendoEvent, 'board_member_added', {
+    boardId: boardMembership.boardId,
+    projectId: boardMembership.projectId,
+    role: boardMembership.role,
+    canComment: boardMembership.canComment,
+    success: true,
+  });
 }
 
 export function* createMembershipInCurrentBoard(data) {
@@ -177,6 +199,15 @@ export function* updateBoardMembership(id, data) {
   }
 
   yield put(actions.updateBoardMembership.success(boardMembership));
+
+  // Pendo: the server saved a new role or comment permission for the membership
+  if (data.role !== undefined || data.canComment !== undefined) {
+    yield call(trackPendoEvent, 'board_member_permissions_changed', {
+      boardId: boardMembership.boardId,
+      role: boardMembership.role,
+      canComment: boardMembership.canComment,
+    });
+  }
 }
 
 export function* handleBoardMembershipUpdate(boardMembership) {
