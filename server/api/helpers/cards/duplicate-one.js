@@ -349,6 +349,20 @@ module.exports = {
       },
     });
 
+    // Pendo: the copy is created
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Card duplicated',
+      visitorId: values.creatorUser.id,
+      properties: {
+        source_card_id: inputs.record.id,
+        card_id: card.id,
+        list_id: list.id,
+        board_id: board.id,
+        project_id: project.id,
+        is_other_board: !!values.board,
+      },
+    });
+
     return {
       card,
       cardMemberships: nextCardMemberships,

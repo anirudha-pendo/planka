@@ -52,5 +52,17 @@ module.exports = {
       }),
       user: inputs.actorUser,
     });
+
+    // Pendo: the trash list is cleared
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Trash emptied',
+      visitorId: inputs.actorUser.id,
+      properties: {
+        list_id: inputs.record.id,
+        list_type: inputs.record.type,
+        board_id: inputs.board.id,
+        project_id: inputs.project.id,
+      },
+    });
   },
 };

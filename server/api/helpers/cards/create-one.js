@@ -150,6 +150,20 @@ module.exports = {
       list: values.list,
     });
 
+    // Pendo: the card is saved and logged as activity
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Card created',
+      visitorId: values.creatorUser.id,
+      properties: {
+        card_id: card.id,
+        card_type: card.type,
+        list_id: values.list.id,
+        list_type: values.list.type,
+        board_id: values.board.id,
+        project_id: inputs.project.id,
+      },
+    });
+
     return card;
   },
 };

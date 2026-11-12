@@ -228,6 +228,17 @@ module.exports = {
 
     ({ user } = await User.qm.updateOne(user.id, values));
 
+    // Pendo: the terms acceptance is recorded and the sign-in continues
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Terms accepted',
+      visitorId: user.id,
+      properties: {
+        terms_type: sails.config.custom.termsType,
+        role: user.role,
+        initial_language_set: !!values.language,
+      },
+    });
+
     // The rest of the login runs through the same steps as a password login,
     // on the session that holds this pending token.
     return sails.helpers.accessTokens.handleSteps

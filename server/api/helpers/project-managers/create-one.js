@@ -87,6 +87,17 @@ module.exports = {
       user: inputs.actorUser,
     });
 
+    // Pendo: the project manager record is created and the user has manager access
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Project manager added',
+      visitorId: inputs.actorUser.id,
+      properties: {
+        project_manager_id: projectManager.id,
+        project_id: projectManager.projectId,
+        manager_user_id: projectManager.userId,
+      },
+    });
+
     return projectManager;
   },
 };

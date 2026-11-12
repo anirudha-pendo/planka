@@ -79,6 +79,18 @@ module.exports = {
       user: inputs.actorUser,
     });
 
+    // Pendo: the notification service is saved. Only the URL schema is sent, never the URL.
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Notification service added',
+      visitorId: inputs.actorUser.id,
+      properties: {
+        notification_service_id: notificationService.id,
+        service_schema: schema,
+        format: notificationService.format,
+        is_own_service: notificationService.userId === inputs.actorUser.id,
+      },
+    });
+
     return notificationService;
   },
 };

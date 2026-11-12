@@ -166,6 +166,16 @@ module.exports = {
       totpRecoveryCodes: hashedRecoveryCodes,
     });
 
+    // Pendo: TOTP is confirmed and turned on for the account
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Two-factor authentication enabled',
+      visitorId: currentUser.id,
+      properties: {
+        role: currentUser.role,
+        recovery_codes_count: recoveryCodes.length,
+      },
+    });
+
     return {
       item: sails.helpers.users.presentOne(updatedUser, currentUser),
       included: {

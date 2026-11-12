@@ -61,6 +61,15 @@ module.exports = {
         }),
         user: inputs.actorUser,
       });
+
+      // Pendo: the project is removed
+      sails.helpers.utils.sendPendoTrackEvent.with({
+        event: 'Project deleted',
+        visitorId: inputs.actorUser.id,
+        properties: {
+          project_id: project.id,
+        },
+      });
     }
 
     return project;

@@ -62,6 +62,16 @@ module.exports = {
         }),
         user: inputs.actorUser,
       });
+
+      // Pendo: the board and its content are removed
+      sails.helpers.utils.sendPendoTrackEvent.with({
+        event: 'Board deleted',
+        visitorId: inputs.actorUser.id,
+        properties: {
+          board_id: board.id,
+          project_id: inputs.project.id,
+        },
+      });
     }
 
     return board;

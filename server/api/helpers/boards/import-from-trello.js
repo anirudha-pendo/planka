@@ -19,6 +19,9 @@ module.exports = {
       type: 'json',
       required: true,
     },
+    actorUser: {
+      type: 'ref',
+    },
   },
 
   async fn(inputs) {
@@ -129,5 +132,23 @@ module.exports = {
         }),
       ),
     );
+
+    // Pendo: the Trello export is converted into lists, cards, labels, tasks and comments
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Board imported from Trello',
+      visitorId: inputs.actorUser ? inputs.actorUser.id : undefined,
+      properties: {
+        board_id: inputs.board.id,
+        project_id: inputs.board.projectId,
+        lists_count: openedTrelloLists.length,
+        cards_count: inputs.trelloBoard.cards.length,
+        labels_count: inputs.trelloBoard.labels.length,
+        tasks_count: _.sumBy(
+          inputs.trelloBoard.checklists,
+          (trelloChecklist) => trelloChecklist.checkItems.length,
+        ),
+        comments_count: trelloCommentActions.length,
+      },
+    });
   },
 };

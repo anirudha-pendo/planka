@@ -93,6 +93,16 @@ module.exports = {
       request: this.req,
     });
 
+    // Pendo: a new API key is issued. The key and its prefix are never sent.
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'API key created',
+      visitorId: currentUser.id,
+      properties: {
+        target_user_id: inputs.id,
+        is_own_key: inputs.id === currentUser.id,
+      },
+    });
+
     return {
       item: sails.helpers.users.presentOne(user, currentUser),
       included: {

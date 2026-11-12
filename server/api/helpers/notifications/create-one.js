@@ -281,6 +281,9 @@ module.exports = {
       withDeactivated: false,
     });
 
+    let isEmailSent = false;
+    let notificationServicesCount = 0;
+
     if (notifiableUser) {
       const notificationServices = await NotificationService.qm.getByUserId(notification.userId);
       const { transporter } = await sails.helpers.utils.makeSmtpTransporter();
@@ -301,6 +304,8 @@ module.exports = {
             values.creatorUser,
             t,
           );
+
+          notificationServicesCount = notificationServices.length;
         }
 
         if (transporter) {
@@ -313,9 +318,25 @@ module.exports = {
             notifiableUser,
             t,
           );
+
+          isEmailSent = true;
         }
       }
     }
+
+    // Pendo: the notification is created and sent to its recipient
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Notification delivered',
+      visitorId: notification.userId,
+      properties: {
+        notification_id: notification.id,
+        notification_type: notification.type,
+        card_id: notification.cardId,
+        board_id: notification.boardId,
+        sent_by_email: isEmailSent,
+        notification_services_count: notificationServicesCount,
+      },
+    });
 
     return notification;
   },

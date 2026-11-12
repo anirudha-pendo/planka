@@ -330,7 +330,42 @@ module.exports = {
             board: inputs.board,
             list: values.list,
           });
+
+          // Pendo: the list changed, activity is logged and subscribers are notified
+          sails.helpers.utils.sendPendoTrackEvent.with({
+            event: 'Card moved',
+            visitorId: inputs.actorUser.id,
+            properties: {
+              card_id: card.id,
+              from_list_id: inputs.list.id,
+              from_list_type: inputs.list.type,
+              to_list_id: values.list.id,
+              to_list_type: values.list.type,
+              board_id: inputs.board.id,
+              project_id: inputs.project.id,
+            },
+          });
         }
+      }
+
+      // Pendo: fires only on the transition into a Closed list, not on later updates
+      if (
+        values.list &&
+        List.TYPE_STATE_BY_TYPE[values.list.type] === List.TypeStates.CLOSED &&
+        !inputs.record.isClosed &&
+        card.isClosed
+      ) {
+        sails.helpers.utils.sendPendoTrackEvent.with({
+          event: 'Card closed',
+          visitorId: inputs.actorUser.id,
+          properties: {
+            card_id: card.id,
+            list_id: values.list.id,
+            list_type: values.list.type,
+            board_id: board.id,
+            project_id: project.id,
+          },
+        });
       }
 
       if (tasks) {

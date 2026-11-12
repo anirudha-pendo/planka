@@ -102,6 +102,19 @@ module.exports = {
       user: inputs.actorUser,
     });
 
+    // Pendo: the membership is created and the user can open the board
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Board member added',
+      visitorId: inputs.actorUser.id,
+      properties: {
+        board_membership_id: boardMembership.id,
+        board_id: boardMembership.boardId,
+        project_id: boardMembership.projectId,
+        member_user_id: boardMembership.userId,
+        role: boardMembership.role,
+      },
+    });
+
     return boardMembership;
   },
 };

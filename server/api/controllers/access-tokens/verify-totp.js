@@ -245,6 +245,16 @@ module.exports = {
       setTrustDeviceCookie(this.res, plainToken);
     }
 
+    // Pendo: the code is verified and the pending token is now a full session
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Two-factor challenge passed',
+      visitorId: user.id,
+      properties: {
+        used_recovery_code: consumedRecoveryIndex >= 0,
+        trust_device: !!inputs.trustDevice,
+      },
+    });
+
     return {
       item: accessToken,
     };

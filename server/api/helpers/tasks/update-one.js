@@ -152,6 +152,21 @@ module.exports = {
           board: inputs.board,
           list: inputs.list,
         });
+
+        // Pendo: fires only on the transition to complete, after activity is logged
+        if (task.isCompleted) {
+          sails.helpers.utils.sendPendoTrackEvent.with({
+            event: 'Task completed',
+            visitorId: inputs.actorUser.id,
+            properties: {
+              task_id: task.id,
+              task_list_id: task.taskListId,
+              card_id: inputs.card.id,
+              board_id: inputs.board.id,
+              project_id: inputs.project.id,
+            },
+          });
+        }
       }
     }
 
