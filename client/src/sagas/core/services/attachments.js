@@ -13,6 +13,7 @@ import selectors from '../../../selectors';
 import actions from '../../../actions';
 import api from '../../../api';
 import { createLocalId } from '../../../utils/local-id';
+import pendoTrack from '../../../utils/pendo-track';
 import { AttachmentTypes } from '../../../constants/Enums';
 import ToastTypes from '../../../constants/ToastTypes';
 
@@ -36,6 +37,17 @@ export function* createAttachment(cardId, data) {
     }),
   );
 
+  // Properties for the attachment_added Pendo Track Event
+  const trackProperties = {
+    cardId,
+    attachmentType: nextData.type,
+    ...(nextData.type === AttachmentTypes.FILE &&
+      nextData.file && {
+        fileSize: nextData.file.size,
+        mimeType: nextData.file.type || 'unknown',
+      }),
+  };
+
   let attachment;
   try {
     ({ item: attachment } = yield nextData.type === AttachmentTypes.FILE
@@ -44,8 +56,8 @@ export function* createAttachment(cardId, data) {
   } catch (error) {
     yield put(actions.createAttachment.failure(localId, error));
 
+    let toastType;
     if (error.code === 'E_UNPROCESSABLE_ENTITY') {
-      let toastType;
       if (error.message.startsWith('Upload limit')) {
         toastType = ToastTypes.FILE_IS_TOO_BIG;
       } else if (error.message === 'Storage limit reached') {
@@ -59,10 +71,23 @@ export function* createAttachment(cardId, data) {
       }
     }
 
+    // Pendo Track Event: attachment upload or link save rejected
+    yield call(pendoTrack, 'attachment_added', {
+      ...trackProperties,
+      outcome: 'failure',
+      failureReason: toastType || error.code || 'unknown',
+    });
+
     return;
   }
 
   yield put(actions.createAttachment.success(localId, attachment));
+
+  // Pendo Track Event: attachment upload or link save finished
+  yield call(pendoTrack, 'attachment_added', {
+    ...trackProperties,
+    outcome: 'success',
+  });
 }
 
 export function* createAttachmentInCurrentCard(data) {

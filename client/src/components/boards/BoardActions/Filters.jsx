@@ -377,7 +377,7 @@ const Filters = React.memo(() => {
       if (filter.search) {
         debouncedSearch.cancel();
         setSearch(filter.search);
-        dispatch(entryActions.searchInCurrentBoard(filter.search));
+        dispatch(entryActions.searchInCurrentBoard(filter.search, true));
       }
     },
     [debouncedSearch, dispatch],

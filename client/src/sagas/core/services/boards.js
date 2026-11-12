@@ -13,6 +13,7 @@ import actions from '../../../actions';
 import api from '../../../api';
 import { createLocalId } from '../../../utils/local-id';
 import { rememberBoardView } from '../../../utils/board-view-memory';
+import pendoTrack from '../../../utils/pendo-track';
 import ActionTypes from '../../../constants/ActionTypes';
 import ModalTypes from '../../../constants/ModalTypes';
 
@@ -59,10 +60,29 @@ export function* createBoard(projectId, { import: boardImport, ...data }) {
       : call(request, api.createBoard, projectId, nextData));
   } catch (error) {
     yield put(actions.createBoard.failure(localId, error));
+
+    // Pendo Track Event: board creation or import rejected by the server
+    yield call(pendoTrack, 'board_created', {
+      projectId,
+      isImport: !!boardImport,
+      importType: boardImport ? boardImport.type : 'none',
+      outcome: 'failure',
+    });
+
     return;
   }
 
   yield put(actions.createBoard.success(localId, board, boardMemberships));
+
+  // Pendo Track Event: server confirmed a new blank or imported board
+  yield call(pendoTrack, 'board_created', {
+    boardId: board.id,
+    projectId,
+    isImport: !!boardImport,
+    importType: boardImport ? boardImport.type : 'none',
+    boardMembershipsCount: boardMemberships ? boardMemberships.length : 0,
+    outcome: 'success',
+  });
 
   if (watchForCreateBoardActionTask.isRunning()) {
     yield call(goToBoard, board.id);
@@ -218,11 +238,39 @@ export function* updateViewInCurrentBoard(value) {
   yield call(updateBoardView, boardId, value);
 }
 
-export function* searchInCurrentBoard(value) {
+export function* searchInCurrentBoard(value, isRestoredFilter = false) {
   const { boardId } = yield select(selectors.selectPath);
   const currentListId = yield select(selectors.selectCurrentListId);
 
   yield put(actions.searchInBoard(boardId, value, currentListId));
+
+  // Pendo Track Event: board search ran with a query (clearing the search is not tracked)
+  if (value) {
+    // Archive and trash lists load matching cards from the server afterwards, so
+    // the result count is only known up front for the board's own lists.
+    const filteredCardIds = currentListId
+      ? null
+      : yield select(selectors.selectFilteredCardIdsForCurrentBoard);
+
+    const filterUserIds = yield select(selectors.selectFilterUserIdsForCurrentBoard);
+    const filterLabelIds = yield select(selectors.selectFilterLabelIdsForCurrentBoard);
+    const filterExcludedLabelIds = yield select(
+      selectors.selectFilterExcludedLabelIdsForCurrentBoard,
+    );
+    const filterListIds = yield select(selectors.selectFilterListIdsForCurrentBoard);
+
+    yield call(pendoTrack, 'board_search_performed', {
+      boardId,
+      queryLength: value.length,
+      ...(filteredCardIds && {
+        resultsCount: filteredCardIds.length,
+      }),
+      filterUserCount: filterUserIds.length,
+      filterLabelCount: filterLabelIds.length + filterExcludedLabelIds.length,
+      filterListCount: filterListIds.length,
+      isRestoredFilter,
+    });
+  }
 }
 
 export function* deleteBoard(id) {
