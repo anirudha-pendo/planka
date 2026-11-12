@@ -13,6 +13,7 @@ import actions from '../../../actions';
 import api from '../../../api';
 import { setAccessToken } from '../../../utils/access-token-storage';
 import mergeRecords from '../../../utils/merge-records';
+import pendoTrack from '../../../utils/pendo-track';
 import { isUserAdminOrProjectOwner } from '../../../utils/record-helpers';
 import { UserRoles } from '../../../constants/Enums';
 
@@ -35,10 +36,27 @@ export function* createUser(data) {
     ({ item: user } = yield call(request, api.createUser, data));
   } catch (error) {
     yield put(actions.createUser.failure(error));
+
+    // Pendo Track Event: user creation rejected (for example a duplicate email or username)
+    yield call(pendoTrack, 'user_created', {
+      role: data.role,
+      outcome: 'failure',
+      errorCode: error.code || 'unknown',
+      ...(error.message && {
+        errorMessage: error.message.slice(0, 100),
+      }),
+    });
+
     return;
   }
 
   yield put(actions.createUser.success(user));
+
+  // Pendo Track Event: administrator created a user
+  yield call(pendoTrack, 'user_created', {
+    role: user.role,
+    outcome: 'success',
+  });
 }
 
 export function* handleUserCreate(user) {
@@ -428,6 +446,14 @@ export function* enableUserTotp(id, data) {
   }
 
   yield put(actions.enableUserTotp.success(user, recoveryCodes));
+
+  // Pendo Track Event: two-factor authentication turned on after code verification
+  const currentUserId = yield select(selectors.selectCurrentUserId);
+
+  yield call(pendoTrack, 'two_factor_enabled', {
+    recoveryCodesCount: recoveryCodes ? recoveryCodes.length : 0,
+    isCurrentUser: id === currentUserId,
+  });
 }
 
 export function* enableCurrentUserTotp(data) {

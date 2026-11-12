@@ -13,6 +13,7 @@ import actions from '../../../actions';
 import api from '../../../api';
 import { createLocalId } from '../../../utils/local-id';
 import mergeRecords from '../../../utils/merge-records';
+import pendoTrack from '../../../utils/pendo-track';
 
 export function* createBoardMembership(boardId, data) {
   const localId = yield call(createLocalId);
@@ -30,10 +31,33 @@ export function* createBoardMembership(boardId, data) {
     ({ item: boardMembership } = yield call(request, api.createBoardMembership, boardId, data));
   } catch (error) {
     yield put(actions.createBoardMembership.failure(localId, error));
+
+    // Pendo Track Event: adding a board member failed
+    yield call(pendoTrack, 'board_member_added', {
+      boardId,
+      role: data.role,
+      ...(data.canComment !== undefined &&
+        data.canComment !== null && {
+          canComment: data.canComment,
+        }),
+      outcome: 'failure',
+    });
+
     return;
   }
 
   yield put(actions.createBoardMembership.success(localId, boardMembership));
+
+  // Pendo Track Event: board membership created on the server
+  yield call(pendoTrack, 'board_member_added', {
+    boardId,
+    role: boardMembership.role,
+    ...(boardMembership.canComment !== undefined &&
+      boardMembership.canComment !== null && {
+        canComment: boardMembership.canComment,
+      }),
+    outcome: 'success',
+  });
 }
 
 export function* createMembershipInCurrentBoard(data) {

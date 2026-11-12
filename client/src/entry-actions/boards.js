@@ -72,10 +72,11 @@ const updateViewInCurrentBoard = (value) => ({
   },
 });
 
-const searchInCurrentBoard = (value) => ({
+const searchInCurrentBoard = (value, isRestoredFilter = false) => ({
   type: EntryActionTypes.IN_CURRENT_BOARD_SEARCH,
   payload: {
     value,
+    isRestoredFilter,
   },
 });
 

@@ -10,7 +10,16 @@ import actions from '../../../actions';
 import api from '../../../api';
 import i18n from '../../../i18n';
 import { setAccessToken } from '../../../utils/access-token-storage';
+import pendoTrack from '../../../utils/pendo-track';
 import AccessTokenSteps from '../../../constants/AccessTokenSteps';
+
+// Remembers which extra steps the current sign-in attempt went through, so the
+// final sign_in_completed event can report them. Reset on every new attempt.
+// The completed event fires before the success action, because that action
+// cancels the login watchers.
+let signInFlowState = {
+  acceptedTerms: false,
+};
 
 export function* initializeLogin() {
   const { item: bootstrap } = yield call(api.getBootstrap); // TODO: handle error
@@ -19,12 +28,23 @@ export function* initializeLogin() {
 }
 
 export function* authenticate(data) {
+  signInFlowState = {
+    acceptedTerms: false,
+  };
+
   yield put(actions.authenticate(data));
 
   let accessToken;
   try {
     ({ item: accessToken } = yield call(api.createAccessToken, data));
   } catch (error) {
+    // Pendo Track Event: password sign-in rejected, or an extra step is required
+    yield call(pendoTrack, 'sign_in_failed', {
+      errorStep: error.step || 'none',
+      errorCode: error.code || 'unknown',
+      flow: 'password',
+    });
+
     let terms;
     if (error.step === AccessTokenSteps.ACCEPT_TERMS) {
       ({ item: terms } = yield call(api.getTerms, i18n.resolvedLanguage));
@@ -33,6 +53,14 @@ export function* authenticate(data) {
     yield put(actions.authenticate.failure(error, terms));
     return;
   }
+
+  // Pendo Track Event: access token issued directly after password sign-in
+  yield call(pendoTrack, 'sign_in_completed', {
+    completedStep: 'password',
+    requiredTotp: false,
+    acceptedTerms: false,
+    language: i18n.resolvedLanguage,
+  });
 
   yield call(setAccessToken, accessToken);
   yield put(actions.authenticate.success(accessToken));
@@ -55,9 +83,21 @@ export function* acceptTerms(signature) {
       initialLanguage: i18n.resolvedLanguage,
     }));
   } catch (error) {
+    if (error.step === AccessTokenSteps.VERIFY_TOTP) {
+      signInFlowState.acceptedTerms = true;
+    }
+
     yield put(actions.acceptTerms.failure(error));
     return;
   }
+
+  // Pendo Track Event: access token issued after terms acceptance
+  yield call(pendoTrack, 'sign_in_completed', {
+    completedStep: 'accept_terms',
+    requiredTotp: false,
+    acceptedTerms: true,
+    language: i18n.resolvedLanguage,
+  });
 
   yield call(setAccessToken, accessToken);
   yield put(actions.acceptTerms.success(accessToken));
@@ -106,9 +146,24 @@ export function* verifyTotp(data) {
       pendingToken,
     }));
   } catch (error) {
+    // Pendo Track Event: TOTP challenge rejected
+    yield call(pendoTrack, 'sign_in_failed', {
+      errorStep: error.step || 'none',
+      errorCode: error.code || 'unknown',
+      flow: 'verify_totp',
+    });
+
     yield put(actions.verifyTotp.failure(error));
     return;
   }
+
+  // Pendo Track Event: access token issued after the TOTP challenge
+  yield call(pendoTrack, 'sign_in_completed', {
+    completedStep: 'verify_totp',
+    requiredTotp: true,
+    acceptedTerms: signInFlowState.acceptedTerms,
+    language: i18n.resolvedLanguage,
+  });
 
   yield call(setAccessToken, accessToken);
   yield put(actions.verifyTotp.success(accessToken));

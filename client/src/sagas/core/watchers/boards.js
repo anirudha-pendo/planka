@@ -37,8 +37,10 @@ export default function* boardsWatchers() {
     takeEvery(EntryActionTypes.VIEW_IN_CURRENT_BOARD_UPDATE, ({ payload: { value } }) =>
       services.updateViewInCurrentBoard(value),
     ),
-    takeEvery(EntryActionTypes.IN_CURRENT_BOARD_SEARCH, ({ payload: { value } }) =>
-      services.searchInCurrentBoard(value),
+    takeEvery(
+      EntryActionTypes.IN_CURRENT_BOARD_SEARCH,
+      ({ payload: { value, isRestoredFilter } }) =>
+        services.searchInCurrentBoard(value, isRestoredFilter),
     ),
     takeEvery(EntryActionTypes.BOARD_DELETE, ({ payload: { id } }) => services.deleteBoard(id)),
     takeEvery(EntryActionTypes.BOARD_DELETE_HANDLE, ({ payload: { board } }) =>
