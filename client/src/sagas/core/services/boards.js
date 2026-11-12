@@ -13,6 +13,7 @@ import actions from '../../../actions';
 import api from '../../../api';
 import { createLocalId } from '../../../utils/local-id';
 import { rememberBoardView } from '../../../utils/board-view-memory';
+import trackPendoEvent from '../../../utils/pendo-track';
 import ActionTypes from '../../../constants/ActionTypes';
 import ModalTypes from '../../../constants/ModalTypes';
 
@@ -63,6 +64,15 @@ export function* createBoard(projectId, { import: boardImport, ...data }) {
   }
 
   yield put(actions.createBoard.success(localId, board, boardMemberships));
+
+  // Board created, either blank or from an imported file the server processed
+  yield call(trackPendoEvent, 'board_created', {
+    is_import: !!boardImport,
+    import_type: boardImport ? boardImport.type : null,
+    import_file_size: boardImport && boardImport.file ? boardImport.file.size : null,
+    project_id: projectId,
+    board_memberships_count: boardMemberships ? boardMemberships.length : 0,
+  });
 
   if (watchForCreateBoardActionTask.isRunning()) {
     yield call(goToBoard, board.id);
@@ -223,6 +233,29 @@ export function* searchInCurrentBoard(value) {
   const currentListId = yield select(selectors.selectCurrentListId);
 
   yield put(actions.searchInBoard(boardId, value, currentListId));
+
+  // Clearing the search field also lands here. Only a non-empty query counts
+  // as a search.
+  if (value && value.trim()) {
+    const board = yield select(selectors.selectCurrentBoard);
+    const filteredCardIds = yield select(selectors.selectFilteredCardIdsForCurrentBoard);
+    const filterUserIds = yield select(selectors.selectFilterUserIdsForCurrentBoard);
+    const filterLabelIds = yield select(selectors.selectFilterLabelIdsForCurrentBoard);
+    const filterExcludedLabelIds = yield select(
+      selectors.selectFilterExcludedLabelIdsForCurrentBoard,
+    );
+    const filterListIds = yield select(selectors.selectFilterListIdsForCurrentBoard);
+
+    yield call(trackPendoEvent, 'board_search_performed', {
+      query_length: value.trim().length,
+      results_count: (filteredCardIds || []).length,
+      user_filter_count: (filterUserIds || []).length,
+      label_filter_count: (filterLabelIds || []).length,
+      excluded_label_filter_count: (filterExcludedLabelIds || []).length,
+      list_filter_count: (filterListIds || []).length,
+      board_view: board ? board.view : null,
+    });
+  }
 }
 
 export function* deleteBoard(id) {
