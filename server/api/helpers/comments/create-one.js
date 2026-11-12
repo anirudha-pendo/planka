@@ -186,6 +186,20 @@ module.exports = {
       );
     }
 
+    // Pendo Track Event: the comment was saved and subscribers were notified
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Comment posted',
+      visitorId: values.user.id,
+      properties: {
+        comment_id: comment.id,
+        card_id: comment.cardId,
+        board_id: inputs.board.id,
+        project_id: inputs.project.id,
+        mentions_count: mentionUserIds.length,
+        notified_users_count: notifiableUserIds.length,
+      },
+    });
+
     return comment;
   },
 };

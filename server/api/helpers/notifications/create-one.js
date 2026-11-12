@@ -315,6 +315,20 @@ module.exports = {
           );
         }
       }
+
+      // Pendo Track Event: the in-app notification was created and channel messages were sent
+      sails.helpers.utils.sendPendoTrackEvent.with({
+        event: 'Notification delivered',
+        visitorId: notification.userId,
+        properties: {
+          notification_type: notification.type,
+          card_id: notification.cardId,
+          board_id: notification.boardId,
+          project_id: inputs.project.id,
+          email_sent: !!transporter,
+          external_channels_count: notificationServices.length,
+        },
+      });
     }
 
     return notification;

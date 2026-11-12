@@ -94,6 +94,19 @@ module.exports = {
       user: inputs.actorUser,
     });
 
+    // Pendo Track Event: the external channel was saved for the board
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Board notification service added',
+      visitorId: inputs.actorUser.id,
+      properties: {
+        notification_service_id: notificationService.id,
+        schema,
+        format: notificationService.format,
+        board_id: notificationService.boardId,
+        project_id: inputs.project.id,
+      },
+    });
+
     return notificationService;
   },
 };

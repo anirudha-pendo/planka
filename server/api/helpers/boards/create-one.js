@@ -85,7 +85,12 @@ module.exports = {
     );
 
     if (inputs.import && inputs.import.type === Board.ImportTypes.TRELLO) {
-      await sails.helpers.boards.importFromTrello(board, lists, inputs.import.board);
+      await sails.helpers.boards.importFromTrello(
+        board,
+        lists,
+        inputs.import.board,
+        inputs.actorUser,
+      );
     }
 
     scoper.board = board;
@@ -121,6 +126,18 @@ module.exports = {
         },
       }),
       user: inputs.actorUser,
+    });
+
+    // Pendo Track Event: a new board was saved in the project
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Board created',
+      visitorId: inputs.actorUser.id,
+      properties: {
+        board_id: board.id,
+        project_id: board.projectId,
+        is_imported: !!inputs.import,
+        import_type: inputs.import ? inputs.import.type : null,
+      },
     });
 
     return {
