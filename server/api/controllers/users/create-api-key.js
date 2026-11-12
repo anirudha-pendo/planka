@@ -93,6 +93,17 @@ module.exports = {
       request: this.req,
     });
 
+    // Pendo Track Event: a new API key was issued
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'API key created',
+      visitorId: currentUser.id,
+      properties: {
+        user_id: inputs.id,
+        is_own_key: inputs.id === currentUser.id,
+        actor_role: currentUser.role,
+      },
+    });
+
     return {
       item: sails.helpers.users.presentOne(user, currentUser),
       included: {

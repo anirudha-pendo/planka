@@ -69,6 +69,18 @@ module.exports = {
       user: inputs.actorUser,
     });
 
+    // Pendo Track Event: a field value was stored on the card
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Custom field value saved',
+      visitorId: inputs.actorUser.id,
+      properties: {
+        card_id: customFieldValue.cardId,
+        custom_field_id: customFieldValue.customFieldId,
+        board_id: inputs.board.id,
+        project_id: inputs.project.id,
+      },
+    });
+
     return customFieldValue;
   },
 };

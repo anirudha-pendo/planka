@@ -102,6 +102,19 @@ module.exports = {
       user: inputs.actorUser,
     });
 
+    // Pendo Track Event: a user received access to the board
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Board member added',
+      visitorId: inputs.actorUser.id,
+      properties: {
+        board_id: boardMembership.boardId,
+        project_id: boardMembership.projectId,
+        member_user_id: boardMembership.userId,
+        role: boardMembership.role,
+        is_self: boardMembership.userId === inputs.actorUser.id,
+      },
+    });
+
     return boardMembership;
   },
 };

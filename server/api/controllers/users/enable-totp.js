@@ -166,6 +166,18 @@ module.exports = {
       totpRecoveryCodes: hashedRecoveryCodes,
     });
 
+    // Pendo Track Event: fires only when TOTP turns on, not when it is re-enrolled
+    if (!user.isTotpEnabled && updatedUser.isTotpEnabled) {
+      sails.helpers.utils.sendPendoTrackEvent.with({
+        event: 'Two-factor authentication enabled',
+        visitorId: updatedUser.id,
+        properties: {
+          user_role: updatedUser.role,
+          recovery_codes_count: recoveryCodes.length,
+        },
+      });
+    }
+
     return {
       item: sails.helpers.users.presentOne(updatedUser, currentUser),
       included: {

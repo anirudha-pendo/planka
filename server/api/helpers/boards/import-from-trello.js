@@ -19,6 +19,9 @@ module.exports = {
       type: 'json',
       required: true,
     },
+    actorUser: {
+      type: 'ref',
+    },
   },
 
   async fn(inputs) {
@@ -129,5 +132,20 @@ module.exports = {
         }),
       ),
     );
+
+    // Pendo Track Event: Trello data was imported into the new board
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Board imported from Trello',
+      visitorId: inputs.actorUser && inputs.actorUser.id,
+      properties: {
+        board_id: inputs.board.id,
+        project_id: inputs.board.projectId,
+        lists_count: openedTrelloLists.length,
+        cards_count: inputs.trelloBoard.cards.length,
+        labels_count: inputs.trelloBoard.labels.length,
+        task_lists_count: inputs.trelloBoard.checklists.length,
+        comments_count: trelloCommentActions.length,
+      },
+    });
   },
 };

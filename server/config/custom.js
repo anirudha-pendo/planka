@@ -166,6 +166,12 @@ module.exports.custom = {
 
   gravatarBaseUrl: process.env.GRAVATAR_BASE_URL,
 
+  // Server-side Pendo Track Events. Nothing is sent unless the secret is set.
+  pendoTrackEventSecret: process.env.PENDO_TRACK_EVENT_SECRET,
+  pendoDataHost: process.env.PENDO_DATA_HOST || 'data.pendo-dev.pendo-dev.com',
+  // Every event from this instance is attributed to one Pendo account.
+  pendoAccountId: process.env.PENDO_ACCOUNT_ID || parsedBasedUrl.host,
+
   /* Internal */
 
   internalAccessToken: process.env.INTERNAL_ACCESS_TOKEN,

@@ -119,6 +119,19 @@ module.exports = {
       user: inputs.actorUser,
     });
 
+    // Pendo Track Event: a new task was saved
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Task created',
+      visitorId: inputs.actorUser.id,
+      properties: {
+        task_id: task.id,
+        card_id: inputs.card.id,
+        board_id: inputs.board.id,
+        project_id: inputs.project.id,
+        is_linked_card: !!values.linkedCard,
+      },
+    });
+
     return task;
   },
 };
