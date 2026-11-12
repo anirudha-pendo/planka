@@ -10,7 +10,12 @@ import actions from '../../../actions';
 import api from '../../../api';
 import i18n from '../../../i18n';
 import { setAccessToken } from '../../../utils/access-token-storage';
+import trackPendoEvent from '../../../utils/pendo-track';
 import AccessTokenSteps from '../../../constants/AccessTokenSteps';
+
+// Remembers whether the terms step was passed in the current sign-in attempt,
+// so a sign-in that ends at the TOTP challenge can still report it.
+let isTermsAcceptedInCurrentLogin = false;
 
 export function* initializeLogin() {
   const { item: bootstrap } = yield call(api.getBootstrap); // TODO: handle error
@@ -19,12 +24,22 @@ export function* initializeLogin() {
 }
 
 export function* authenticate(data) {
+  isTermsAcceptedInCurrentLogin = false;
+
   yield put(actions.authenticate(data));
 
   let accessToken;
   try {
     ({ item: accessToken } = yield call(api.createAccessToken, data));
   } catch (error) {
+    // Sign-in attempt rejected at the password step (bad credentials, or a
+    // terms or TOTP step the visitor still has to pass).
+    yield call(trackPendoEvent, 'login_failed', {
+      error_step: (error && error.step) || 'none',
+      error_code: (error && error.code) || 'unknown',
+      attempt_stage: 'password',
+    });
+
     let terms;
     if (error.step === AccessTokenSteps.ACCEPT_TERMS) {
       ({ item: terms } = yield call(api.getTerms, i18n.resolvedLanguage));
@@ -35,6 +50,15 @@ export function* authenticate(data) {
   }
 
   yield call(setAccessToken, accessToken);
+
+  yield call(trackPendoEvent, 'login_completed', {
+    completion_step: 'password',
+    totp_required: false,
+    terms_accepted: false,
+    trust_device: false,
+    language: i18n.resolvedLanguage,
+  });
+
   yield put(actions.authenticate.success(accessToken));
 }
 
@@ -55,11 +79,26 @@ export function* acceptTerms(signature) {
       initialLanguage: i18n.resolvedLanguage,
     }));
   } catch (error) {
+    if (error && error.step === AccessTokenSteps.VERIFY_TOTP) {
+      isTermsAcceptedInCurrentLogin = true;
+    }
+
     yield put(actions.acceptTerms.failure(error));
     return;
   }
 
   yield call(setAccessToken, accessToken);
+
+  yield call(trackPendoEvent, 'login_completed', {
+    completion_step: 'accept_terms',
+    totp_required: false,
+    terms_accepted: true,
+    trust_device: false,
+    language: i18n.resolvedLanguage,
+  });
+
+  isTermsAcceptedInCurrentLogin = false;
+
   yield put(actions.acceptTerms.success(accessToken));
 }
 
@@ -106,11 +145,29 @@ export function* verifyTotp(data) {
       pendingToken,
     }));
   } catch (error) {
+    // Sign-in attempt rejected at the TOTP challenge.
+    yield call(trackPendoEvent, 'login_failed', {
+      error_step: (error && error.step) || AccessTokenSteps.VERIFY_TOTP,
+      error_code: (error && error.code) || 'unknown',
+      attempt_stage: 'totp',
+    });
+
     yield put(actions.verifyTotp.failure(error));
     return;
   }
 
   yield call(setAccessToken, accessToken);
+
+  yield call(trackPendoEvent, 'login_completed', {
+    completion_step: 'verify_totp',
+    totp_required: true,
+    terms_accepted: isTermsAcceptedInCurrentLogin,
+    trust_device: !!data.trustDevice,
+    language: i18n.resolvedLanguage,
+  });
+
+  isTermsAcceptedInCurrentLogin = false;
+
   yield put(actions.verifyTotp.success(accessToken));
 }
 

@@ -13,6 +13,7 @@ import selectors from '../../../selectors';
 import actions from '../../../actions';
 import api from '../../../api';
 import mergeRecords from '../../../utils/merge-records';
+import trackPendoEvent from '../../../utils/pendo-track';
 import { UserRoles } from '../../../constants/Enums';
 
 export function* searchProjects(value) {
@@ -54,6 +55,15 @@ export function* createProject(data) {
   }
 
   yield put(actions.createProject.success(project, projectManagers));
+
+  // Project confirmed by the server. The type comes from the form, since it
+  // is not part of the stored project.
+  yield call(trackPendoEvent, 'project_created', {
+    project_type: data.type || null,
+    has_description: !!(data.description && data.description.trim()),
+    project_managers_count: projectManagers ? projectManagers.length : 0,
+  });
+
   yield call(goToProject, project.id);
 }
 

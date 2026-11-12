@@ -9,6 +9,7 @@ import request from '../request';
 import actions from '../../../actions';
 import api from '../../../api';
 import { createLocalId } from '../../../utils/local-id';
+import trackPendoEvent from '../../../utils/pendo-track';
 
 export function* createWebhook(data) {
   const localId = yield call(createLocalId);
@@ -33,6 +34,14 @@ export function* createWebhook(data) {
   }
 
   yield put(actions.createWebhook.success(localId, webhook));
+
+  // Webhook accepted by the server. Only whether an access token is set is
+  // sent, never the token.
+  yield call(trackPendoEvent, 'webhook_created', {
+    events_count: (data.events || []).length,
+    excluded_events_count: (data.excludedEvents || []).length,
+    has_access_token: !!data.accessToken,
+  });
 }
 
 export function* handleWebhookCreate(webhook) {

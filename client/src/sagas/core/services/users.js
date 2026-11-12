@@ -13,6 +13,7 @@ import actions from '../../../actions';
 import api from '../../../api';
 import { setAccessToken } from '../../../utils/access-token-storage';
 import mergeRecords from '../../../utils/merge-records';
+import trackPendoEvent from '../../../utils/pendo-track';
 import { isUserAdminOrProjectOwner } from '../../../utils/record-helpers';
 import { UserRoles } from '../../../constants/Enums';
 
@@ -37,6 +38,13 @@ export function* createUser(data) {
     yield put(actions.createUser.failure(error));
     return;
   }
+
+  // An administrator created a new account and the server accepted it
+  yield call(trackPendoEvent, 'user_created', {
+    role: user.role,
+    has_username: !!user.username,
+    language: user.language || data.language || null,
+  });
 
   yield put(actions.createUser.success(user));
 }
@@ -350,6 +358,9 @@ export function* updateCurrentUserAvatar(data) {
 }
 
 export function* createUserApiKey(id) {
+  const prevUser = yield select(selectors.selectUserById, id);
+  const currentUserId = yield select(selectors.selectCurrentUserId);
+
   yield put(actions.createUserApiKey(id));
 
   let user;
@@ -364,6 +375,12 @@ export function* createUserApiKey(id) {
     yield put(actions.createUserApiKey.failure(id, error));
     return;
   }
+
+  // API key issued. The key value itself is never sent.
+  yield call(trackPendoEvent, 'api_key_created', {
+    is_current_user: id === currentUserId,
+    replaced_existing_key: !!(prevUser && prevUser.apiKeyPrefix),
+  });
 
   yield put(actions.createUserApiKey.success(user, apiKey));
 }
@@ -426,6 +443,15 @@ export function* enableUserTotp(id, data) {
     yield put(actions.enableUserTotp.failure(id, error));
     return;
   }
+
+  // Two-factor authentication confirmed by the server. Only the count of
+  // recovery codes is sent, never the codes themselves.
+  const currentUserId = yield select(selectors.selectCurrentUserId);
+
+  yield call(trackPendoEvent, 'two_factor_enabled', {
+    recovery_codes_count: recoveryCodes ? recoveryCodes.length : 0,
+    is_current_user: id === currentUserId,
+  });
 
   yield put(actions.enableUserTotp.success(user, recoveryCodes));
 }
