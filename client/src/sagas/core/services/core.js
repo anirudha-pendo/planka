@@ -15,6 +15,7 @@ import { removeAccessToken } from '../../../utils/access-token-storage';
 import { forgetBoardViews } from '../../../utils/board-view-memory';
 import { forgetListScrolls } from '../../../utils/list-scroll-memory';
 import { removeLoginRedirect, setLoginRedirect } from '../../../utils/login-redirect-storage';
+import { clearPendoSession, identifyPendoUser } from '../../../utils/pendo';
 
 export function* initializeCore() {
   const { item: bootstrap } = yield call(request, api.getBootstrap); // TODO: handle error
@@ -47,6 +48,8 @@ export function* initializeCore() {
     notifications,
     notificationServices,
   } = yield call(requests.fetchCore); // TODO: handle error
+
+  yield call(identifyPendoUser, user);
 
   yield call(i18n.changeLanguage, user.language);
   yield call(i18n.loadCoreLocale);
@@ -136,6 +139,7 @@ export function* logout(revokeAccessToken) {
   }
 
   yield call(removeAccessToken);
+  yield call(clearPendoSession);
   // Everything this window was holding about the boards it had open. None of it
   // belongs to the next person to sign in here.
   yield call(forgetBoardViews);
