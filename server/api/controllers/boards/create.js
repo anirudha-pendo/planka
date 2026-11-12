@@ -216,6 +216,19 @@ module.exports = {
       request: this.req,
     });
 
+    // Pendo: board exists in the project, created empty or from an import
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Board created',
+      visitorId: currentUser.id,
+      properties: {
+        board_id: board.id,
+        project_id: project.id,
+        import_type: boardImport ? boardImport.type : 'none',
+        is_imported: !!boardImport,
+      },
+      request: this.req,
+    });
+
     return exits.success({
       item: board,
       included: {

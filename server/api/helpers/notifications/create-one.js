@@ -314,6 +314,22 @@ module.exports = {
             t,
           );
         }
+
+        // Pendo: notification created for a user and sent by email or a notification service
+        sails.helpers.utils.sendPendoTrackEvent.with({
+          event: 'Notification delivered',
+          visitorId: notification.userId,
+          properties: {
+            notification_id: notification.id,
+            notification_type: notification.type,
+            card_id: values.card.id,
+            board_id: inputs.board.id,
+            project_id: inputs.project.id,
+            sent_by_email: !!transporter,
+            sent_by_service: notificationServices.length > 0,
+            service_count: notificationServices.length,
+          },
+        });
       }
     }
 

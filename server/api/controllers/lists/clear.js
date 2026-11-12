@@ -107,6 +107,18 @@ module.exports = {
       request: this.req,
     });
 
+    // Pendo: trash list cleared on the server
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Trash emptied',
+      visitorId: currentUser.id,
+      properties: {
+        list_id: list.id,
+        board_id: board.id,
+        project_id: project.id,
+      },
+      request: this.req,
+    });
+
     return {
       item: list,
     };

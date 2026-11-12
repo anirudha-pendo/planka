@@ -228,9 +228,21 @@ module.exports = {
 
     ({ user } = await User.qm.updateOne(user.id, values));
 
+    // Pendo: terms signature recorded for the user
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Terms accepted',
+      visitorId: user.id,
+      properties: {
+        terms_type: sails.config.custom.termsType,
+        user_role: user.role,
+        is_language_set: !!values.language,
+      },
+      request: this.req,
+    });
+
     // The rest of the login runs through the same steps as a password login,
     // on the session that holds this pending token.
-    return sails.helpers.accessTokens.handleSteps
+    const result = await sails.helpers.accessTokens.handleSteps
       .with({
         user,
         remoteAddress,
@@ -248,5 +260,19 @@ module.exports = {
       .intercept('totpVerificationRequired', (error) => ({
         totpVerificationRequired: error.raw,
       }));
+
+    // Pendo: access token issued after terms acceptance completed the login
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Logged in',
+      visitorId: user.id,
+      properties: {
+        last_step: 'accept_terms',
+        user_role: user.role,
+        is_totp_enabled: !!user.isTotpEnabled,
+      },
+      request: this.req,
+    });
+
+    return result;
   },
 };

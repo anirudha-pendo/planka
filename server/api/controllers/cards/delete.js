@@ -106,6 +106,20 @@ module.exports = {
       throw Errors.CARD_NOT_FOUND;
     }
 
+    // Pendo: card permanently removed
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Card deleted',
+      visitorId: currentUser.id,
+      properties: {
+        card_id: card.id,
+        list_id: list.id,
+        list_type: list.type,
+        board_id: board.id,
+        project_id: project.id,
+      },
+      request: this.req,
+    });
+
     return {
       item: card,
     };

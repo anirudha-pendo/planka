@@ -62,6 +62,8 @@ module.exports = {
     }
 
     const logs = ['📧 Sending test email...'];
+    let isSent = false;
+    let errorCode = 'none';
     try {
       /* eslint-disable no-underscore-dangle */
       const info = await transporter.sendMail({
@@ -71,6 +73,7 @@ module.exports = {
         html: this.req.i18n.__('This is a <i>test</i> <b>html</b> <code>message</code>!'),
       });
       /* eslint-enable no-underscore-dangle */
+      isSent = true;
       logs.push('✅ Email sent successfully.', '');
 
       logs.push(`📬 Message ID: ${info.messageId}`);
@@ -80,6 +83,7 @@ module.exports = {
 
       logs.push('', '🎉 Your configuration is working correctly.');
     } catch (error) {
+      errorCode = error.code || 'unknown';
       logs.push('❌ Failed to send email.', '');
 
       if (error.code) {
@@ -105,6 +109,17 @@ module.exports = {
     } finally {
       transporter.close();
     }
+
+    // Pendo: SMTP test ran on the server and returned its log
+    sails.helpers.utils.sendPendoTrackEvent.with({
+      event: 'Test email sent',
+      visitorId: currentUser.id,
+      properties: {
+        is_sent: isSent,
+        error_code: errorCode,
+      },
+      request: this.req,
+    });
 
     return {
       item: sails.helpers.config.presentOne(config),
